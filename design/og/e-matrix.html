@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>OG E: The song as light</title>
+    <link rel="stylesheet" href="./og.css" />
+    <style>
+      #og {
+        background: var(--ink);
+        color: var(--green);
+      }
+      canvas {
+        position: absolute;
+        inset: 0;
+        width: 1200px;
+        height: 630px;
+      }
+      .band {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 196px;
+        height: 238px;
+        background: var(--ink);
+      }
+      .title {
+        position: absolute;
+        left: 46px;
+        top: 222px;
+        margin: 0;
+      }
+      .row {
+        position: absolute;
+        left: 48px;
+        right: 48px;
+        top: 386px;
+        display: flex;
+        justify-content: space-between;
+        font-size: 30px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="og">
+      <canvas width="1200" height="630"></canvas>
+      <div class="band"></div>
+      <p class="title olline">Hush Money</p>
+      <div class="row"><span>Money you can hear.</span><span>hushmoney.cash</span></div>
+    </div>
+    <script type="module">
+      import { register, kern, fit, now } from './og.ts';
+      import { scoreOf } from '../../src/sing/score.ts';
+
+      // The song's real tones, beat by beat, as a board of lights scrolling past: every
+      // column one beat, every row one of ggwave's tones. Lit where the song sounds.
+      const bytes = Uint8Array.from({ length: 17 }, (_, i) => (i === 0 ? 3 : (i * 97 + 41) % 256));
+      const PITCH = 14; // px between lights
+      const COLS = Math.ceil(1200 / PITCH) + 1;
+      const ROWS = Math.ceil(630 / PITCH);
+      const SPEED = 4; // columns a second
+      const canvas = document.querySelector('canvas');
+      const g = canvas.getContext('2d');
+      let columns = []; // each: the set of lit rows
+
+      const ready = document.fonts.ready.then(async () => {
+        { const title = document.querySelector('.title'); kern(title); fit(title, 1108); }
+        const beats = await scoreOf(bytes, 'fast');
+        const used = [...new Set(beats.flatMap((b) => b.tones))].sort((a, b) => a - b);
+        const lo = used[0];
+        const hi = used[used.length - 1];
+        // The tones spread over every row; the song repeats with a short rest between.
+        const song = beats.map((b) => new Set(b.tones.map((tn) => ROWS - 1 - Math.round(((tn - lo) / Math.max(1, hi - lo)) * (ROWS - 1)))));
+        columns = [...song, ...Array.from({ length: 6 }, () => new Set())];
+        draw();
+      });
+
+      function draw() {
+        const t = now();
+        const shift = t * SPEED;
+        const first = Math.floor(shift);
+        const frac = shift - first;
+        g.fillStyle = '#202020';
+        g.fillRect(0, 0, 1200, 630);
+        for (let c = 0; c < COLS; c++) {
+          const lit = columns[(first + c) % columns.length];
+          const x = (c - frac) * PITCH + PITCH / 2;
+          for (let r = 0; r < ROWS; r++) {
+            const on = lit.has(r) || lit.has(r - 1) || lit.has(r + 1);
+            const core = lit.has(r);
+            g.fillStyle = core ? '#7bfb70' : on ? 'rgb(123 251 112 / 0.45)' : 'rgb(123 251 112 / 0.09)';
+            g.beginPath();
+            g.arc(x, r * PITCH + PITCH / 2, core ? 4.2 : 3.2, 0, Math.PI * 2);
+            g.fill();
+          }
+        }
+        requestAnimationFrame(draw);
+      }
+
+      // One loop is the whole board of columns going by once.
+      const ready2 = ready.then(() => columns.length / SPEED);
+      ready2.then((duration) => register({ duration, hero: duration * 0.4, ready: Promise.resolve() }));
+    </script>
+  </body>
+</html>

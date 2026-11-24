@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>OG D: The laptop sings, the phone catches</title>
+    <link rel="stylesheet" href="./og.css" />
+    <style>
+      #og {
+        background: var(--green);
+        color: var(--ink);
+      }
+      .title {
+        position: absolute;
+        left: 46px;
+        top: 50px;
+        margin: 0;
+      }
+      .lede {
+        position: absolute;
+        left: 48px;
+        top: 172px;
+        margin: 0;
+        max-width: 470px;
+        font-size: 32px;
+        font-weight: 600;
+        line-height: 1.15;
+        letter-spacing: -0.015em;
+      }
+      .url {
+        position: absolute;
+        left: 48px;
+        bottom: 44px;
+        margin: 0;
+        font-size: 26px;
+        font-weight: 600;
+      }
+      svg.scene {
+        position: absolute;
+        inset: 0;
+      }
+      .phone-orb {
+        position: absolute;
+        left: 965px;
+        top: 360px;
+        width: 128px;
+        height: 128px;
+        display: grid;
+        place-items: center;
+      }
+      .phone-orb .face {
+        position: relative;
+        z-index: 2;
+        font-size: 40px;
+      }
+      .plus {
+        position: absolute;
+        left: 940px;
+        top: 532px;
+        width: 178px;
+        margin: 0;
+        text-align: center;
+        font-size: 28px;
+        font-weight: 600;
+        color: var(--green);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="og">
+      <p class="title olline">Hush Money</p>
+      <p class="lede">Your laptop sings a short song. Your phone hears it and catches the bitcoin.</p>
+      <p class="url">hushmoney.cash</p>
+      <svg class="scene" viewBox="0 0 1200 630" aria-hidden="true">
+        <!-- The laptop: a screen with the stave on it, and its base. -->
+        <g fill="none" stroke="#202020" stroke-width="10" stroke-linejoin="round" stroke-linecap="round">
+          <rect x="470" y="300" width="330" height="210" rx="16" />
+          <path d="M430 534 H840 L812 556 H458 Z" fill="#202020" />
+        </g>
+        <g id="screen"></g>
+        <!-- The sound in the air between them. -->
+        <g id="waves" fill="none" stroke="#202020" stroke-linecap="round"></g>
+        <!-- The phone. -->
+        <rect x="940" y="262" width="178" height="340" rx="30" fill="#202020" />
+        <rect x="952" y="274" width="154" height="316" rx="20" fill="#2c2c2c" />
+      </svg>
+      <div class="phone-orb orb-host"><span class="face"><span class="amt"><span>₿</span><span>21</span></span></span></div>
+      <p class="plus">Caught</p>
+    </div>
+    <script type="module">
+      import { register, kern, every, orb, fit, span, easeOut, now } from './og.ts';
+
+      const D = 6;
+      const NS = 'http://www.w3.org/2000/svg';
+      const el = (tag, attrs) => {
+        const n = document.createElementNS(NS, tag);
+        for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+        return n;
+      };
+
+      // Little notes on the laptop's screen, rising and falling as it sings.
+      const screen = document.querySelector('#screen');
+      const bars = Array.from({ length: 13 }, (_, i) => screen.appendChild(el('rect', { x: 498 + i * 22, width: 12, rx: 6, fill: '#202020' })));
+      const waves = document.querySelector('#waves');
+      const arcs = Array.from({ length: 5 }, () => waves.appendChild(el('path', {})));
+      const face = document.querySelector('.phone-orb .face');
+      const plus = document.querySelector('.plus');
+      let o;
+      let shown = '';
+      const look = (next) => next !== shown && o.look((shown = next));
+
+      const ready = document.fonts.ready.then(async () => {
+        { const title = document.querySelector('.title'); kern(title); fit(title, 760); }
+        o = await orb(document.querySelector('.phone-orb'), () => {
+          const t = now() % D;
+          const air = span(t, 0.9, 1.3) * (1 - span(t, 2.2, 2.4));
+          return { level: air * (0.4 + 0.2 * Math.sin(t * 29)), kick: air * 0.15 };
+        }, { faceted: false });
+        look('listening');
+      });
+
+      every(D, (t) => {
+        const singing = span(t, 0.3, 0.5) * (1 - span(t, 3.6, 4.0));
+        bars.forEach((b, i) => {
+          const h = 16 + singing * 70 * Math.abs(Math.sin(t * 9 + i * 1.7) * Math.sin(t * 4.3 + i * 0.6));
+          b.setAttribute('y', String(405 - h / 2));
+          b.setAttribute('height', String(h));
+        });
+        // Arcs leave the laptop and travel to the phone, one after another.
+        arcs.forEach((a, i) => {
+          const p = ((t * 0.9 + i / arcs.length) % 1);
+          const r = 40 + p * 150;
+          const cx = 810;
+          const cy = 405;
+          const s = 0.55;
+          a.setAttribute('d', `M ${cx + r * Math.cos(-s)} ${cy + r * Math.sin(-s)} A ${r} ${r} 0 0 1 ${cx + r * Math.cos(s)} ${cy + r * Math.sin(s)}`);
+          a.setAttribute('stroke-width', String(9 - p * 4));
+          a.setAttribute('opacity', String(singing * Math.sin(p * Math.PI)));
+        });
+        if (!o) return;
+        look(t < 2.2 ? 'listening' : t < 2.6 ? 'heard' : t < 5.4 ? 'caught' : 'listening');
+        const out = easeOut(span(t, 5.2, 5.5));
+        face.style.opacity = String(span(t, 3.2, 3.5) * (1 - out));
+        plus.style.opacity = String(easeOut(span(t, 3.3, 3.7)) * (1 - out));
+        plus.style.transform = `translateY(${(1 - easeOut(span(t, 3.3, 3.7))) * 14}px)`;
+      });
+
+      register({ duration: D, hero: 3.55, warm: D, ready });
+    </script>
+  </body>
+</html>

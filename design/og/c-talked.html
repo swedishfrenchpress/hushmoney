@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>OG C: Money talked</title>
+    <link rel="stylesheet" href="./og.css" />
+    <style>
+      #og {
+        background: var(--green);
+        color: var(--ink);
+      }
+      .coin {
+        position: absolute;
+        left: 78px;
+        top: 140px;
+        width: 300px;
+        height: 300px;
+        display: grid;
+        place-items: center;
+      }
+      .face {
+        position: relative;
+        z-index: 2;
+        font-size: 96px;
+        color: var(--ink);
+      }
+      .lines {
+        position: absolute;
+        left: 452px;
+        top: 200px;
+        margin: 0;
+        display: grid;
+        gap: 26px;
+      }
+      .lines span {
+        display: block;
+      }
+      .foot {
+        position: absolute;
+        left: 48px;
+        right: 48px;
+        bottom: 44px;
+        display: flex;
+        justify-content: space-between;
+        font-size: 28px;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="og">
+      <div class="coin orb-host"><span class="face"><span class="amt"><span>₿</span><span>21</span></span></span></div>
+      <p class="lines olline" aria-label="Money talked. You don't."><span>Money talked.</span><span>You don't.</span></p>
+      <div class="foot"><span>Hush Money</span><span>hushmoney.cash</span></div>
+    </div>
+    <script type="module">
+      import { register, every, orb, fit, span, easeOut, now } from './og.ts';
+
+      // The listener's own moment: the chrome ball hears the song, locks on, and turns into
+      // a silver coin with the amount on its face. Then the line. Then it listens again.
+      const D = 7;
+      const [l1, l2] = document.querySelectorAll('.lines span');
+      const face = document.querySelector('.face');
+      let o;
+      let shown = '';
+      const look = (next) => {
+        if (next !== shown) o.look((shown = next));
+      };
+
+      const ready = document.fonts.ready.then(async () => {
+        fit(l1, 690);
+        fit(l2, 690);
+        l2.style.fontSize = l1.style.fontSize = `${Math.min(parseFloat(l1.style.fontSize), parseFloat(l2.style.fontSize))}px`;
+        o = await orb(document.querySelector('.coin'), () => {
+          const t = now() % D;
+          const air = span(t, 0.2, 0.6) * (1 - span(t, 1.7, 1.9));
+          return { level: air * (0.45 + 0.2 * Math.sin(t * 23) + 0.15 * Math.sin(t * 37)), kick: air * 0.2 * Math.max(0, Math.sin(t * 11)) };
+        }, { faceted: false });
+        look('listening');
+      });
+
+      every(D, (t) => {
+        if (!o) return;
+        look(t < 1.7 ? 'listening' : t < 2.2 ? 'heard' : t < 6.1 ? 'caught' : 'listening');
+        const out = easeOut(span(t, 5.9, 6.3));
+        face.style.opacity = String(span(t, 2.9, 3.2) * (1 - out));
+        [l1, l2].forEach((el, i) => {
+          const inn = easeOut(span(t, 3.1 + i * 0.35, 3.6 + i * 0.35));
+          el.style.opacity = String(inn * (1 - out));
+          el.style.transform = `translateY(${(1 - inn) * 36}px)`;
+        });
+      });
+
+      register({ duration: D, hero: 4.6, warm: D, ready });
+    </script>
+  </body>
+</html>

@@ -71,5 +71,5 @@ Open the `https://…ngrok-free.app` address on the laptop too, so its QR code p
   - `vault.ts`: storage.
   - `orb.ts`: the chrome orb, Three.js.
   - `main.ts`: the page.
-- `design/og/`: the link preview, a soundwave of lights around the name. With a dev server on 5195, `node design/og/render.mjs e3-refined public --as og` renders `public/og.jpg` and the looping `public/og.mp4`.
+- `design/og/`: the link preview, a soundwave of lights around the name. With a dev server on 5195, `node design/og/render.mjs e3-refined public --as og` renders `public/og.jpg` and the looping `public/og.mp4`. The other pages there (`a-shh` to `e2-waves`) are the earlier options, kept for reference.
 - `tests/unit`, `tests/live`, `tests/e2e`: offline, against testnut, and in a browser. `tests/support/fakemint.ts` is a fake mint.

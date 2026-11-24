@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>OG B: Money you can hear</title>
+    <link rel="stylesheet" href="./og.css" />
+    <style>
+      #og {
+        background: var(--green);
+        color: var(--ink);
+      }
+      .title {
+        position: absolute;
+        left: 46px;
+        top: 52px;
+        margin: 0;
+      }
+      .lede {
+        position: absolute;
+        left: 48px;
+        top: 228px;
+        margin: 0;
+        font-size: 34px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        text-transform: uppercase;
+      }
+      .rule {
+        position: absolute;
+        left: 48px;
+        right: 48px;
+        top: 292px;
+        height: 3px;
+        background: rgb(32 32 32 / 0.55);
+      }
+      /* The site's stave, drawn at 800 wide and shown half as big again, so the notes read small. */
+      .stave {
+        position: absolute;
+        left: 0;
+        top: 372px;
+        width: 800px;
+        height: 180px;
+        transform: scale(1.5);
+        transform-origin: 0 0;
+      }
+      .ball {
+        position: absolute;
+        left: 92px;
+        top: 412px;
+        width: 156px;
+        height: 156px;
+      }
+      .url {
+        position: absolute;
+        right: 48px;
+        top: 236px;
+        margin: 0;
+        font-size: 26px;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="og">
+      <p class="title olline">Hush Money</p>
+      <p class="lede">Money you can hear.</p>
+      <p class="url">hushmoney.cash</p>
+      <div class="rule"></div>
+      <canvas class="stave"></canvas>
+      <div class="ball orb-host"></div>
+    </div>
+    <script type="module">
+      import { register, kern, orb, fit, now } from './og.ts';
+      import { scoreOf } from '../../src/sing/score.ts';
+      import { notesOf, Stave } from '../../src/sing/stave.ts';
+      import { chimeNotes, chimeSeconds } from '../../src/chime.ts';
+
+      // Any 17 bytes sing like a real song: a format byte, then a seed. This one holds no money.
+      const bytes = Uint8Array.from({ length: 17 }, (_, i) => (i === 0 ? 3 : (i * 97 + 41) % 256));
+      const PERIOD = 4; // one sing and its pause, as on the laptop
+      let notes = [];
+
+      const ready = document.fonts.ready.then(async () => {
+        { const title = document.querySelector('.title'); kern(title); fit(title, 1108); }
+        notes = notesOf(await scoreOf(bytes, 'fast'), chimeSeconds(), chimeNotes());
+        const stave = new Stave(document.querySelector('.stave'), now);
+        let next = 0;
+        const tick = () => {
+          if (now() >= next) {
+            stave.loop(next, notes);
+            next += PERIOD;
+          }
+          requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+        const o = await orb(document.querySelector('.ball'), () => {
+          // The ball pulses with each tone as it passes the playhead.
+          const songT = now() % PERIOD;
+          let level = 0;
+          for (const n of notes) level += Math.exp(-(((songT - n.t) / 0.05) ** 2)) * (n.chime ? 0.35 : 0.1);
+          return { level: Math.min(0.5, level), kick: Math.min(0.25, level * 0.3) };
+        });
+        o.look('idle');
+      });
+
+      register({ duration: PERIOD * 2, hero: PERIOD + 1.55, warm: PERIOD * 2, ready });
+    </script>
+  </body>
+</html>
