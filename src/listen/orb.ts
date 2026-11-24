@@ -86,7 +86,7 @@ void main() {
   gl_Position = projectionMatrix * viewMatrix * world;
 }`;
 
-const FRAGMENT = /* glsl */ `
+export const FRAGMENT = /* glsl */ `
 uniform float uGold, uDim, uWarn, uTintAmt, uFacet, uLiquid;
 uniform float uTime;
 uniform vec3 uTint;

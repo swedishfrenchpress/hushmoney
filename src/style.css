@@ -2184,7 +2184,7 @@ body:has(#listen) {
 }
 
 
-/* ---- The footer: inverted, black with green type. A checkerboard edge, SHHHHHHH, the orb as its full stop ---- */
+/* ---- The footer: inverted, black with green type. A checkerboard edge, SHHHHHHH, a chrome blob as its full stop ---- */
 .sitefoot {
   position: relative;
   margin: 72px -18px -18px;
@@ -2203,8 +2203,8 @@ body:has(#listen) {
 .sitefoot .foot-giant {
   margin: clamp(90px, 11vw, 170px) 0 0;
   font-family: 'Olline', 'Inter Display', system-ui, sans-serif;
-  /* SHHHHHHH and its orb are 4.43em wide in Olline: this fills the page, edge to edge, on any screen. */
-  font-size: calc((100vw - 36px) / 4.45);
+  /* SHHHHHHH and its blob are 4.49em wide in Olline: this fills the page, edge to edge, on any screen. */
+  font-size: calc((100vw - 36px) / 4.51);
   font-weight: 700;
   line-height: 0.8;
   letter-spacing: -0.012em;
@@ -2212,17 +2212,18 @@ body:has(#listen) {
   white-space: nowrap;
 }
 
-/* The orb is the full stop: a ball of black chrome the size of a period, sitting on the baseline. */
-.sitefoot .foot-orb {
+/* The blob is the full stop: liquid chrome a little bigger than a period, sitting on the
+   baseline, rippling and crackling as if it were shouting the hush (src/footblob.ts). */
+.sitefoot .foot-blob {
   position: relative;
   display: inline-block;
-  width: 0.27em;
-  height: 0.27em;
-  margin: 0 0.07em;
+  width: 0.34em;
+  height: 0.34em;
+  margin-left: 0.06em;
   pointer-events: none;
 }
 
-.sitefoot .foot-orb .orb {
+.sitefoot .foot-blob .orb {
   position: absolute;
   left: 50%;
   top: 50%;
@@ -2233,14 +2234,14 @@ body:has(#listen) {
   pointer-events: none;
 }
 
-.sitefoot .foot-orb .disc {
+.sitefoot .foot-blob .disc {
   position: absolute;
   inset: 0;
   border-radius: 50%;
   background: #7bfb70;
 }
 
-.sitefoot .foot-orb.gl .disc {
+.sitefoot .foot-blob.gl .disc {
   display: none;
 }
 
