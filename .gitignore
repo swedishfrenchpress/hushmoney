@@ -1,0 +1,13 @@
+test-results/
+playwright-report/
+.vercel
+.env*
+.data/
+.data-e2e/
+.data-shots/
+design/screens/
+node_modules
+dist
+.DS_Store
+.vite/
+.impeccable/
