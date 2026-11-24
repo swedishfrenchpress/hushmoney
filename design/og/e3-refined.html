@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>OG E3: The soundwave, refined</title>
+    <link rel="stylesheet" href="./og.css" />
+    <style>
+      #og {
+        background: var(--bg);
+        color: var(--fg);
+      }
+      #og.dark {
+        --bg: #161616;
+        --fg: #7bfb70;
+      }
+      #og.green {
+        --bg: #7bfb70;
+        --fg: #161616;
+      }
+      canvas {
+        position: absolute;
+        inset: 0;
+        width: 1200px;
+        height: 630px;
+      }
+      .title {
+        position: absolute;
+        left: 0;
+        top: 0;
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="og">
+      <canvas width="1200" height="630"></canvas>
+      <p class="title olline">Hush Money</p>
+    </div>
+    <script type="module">
+      import { register, kern, fit, now } from './og.ts';
+
+      // The soundwave, cleaned up: one even grid of round lights, only the lit ones drawn,
+      // mirrored about the middle line, gliding past. The title sits in the middle of the
+      // sound with the same clear space all round it.
+      const theme = new URLSearchParams(location.search).get('theme') === 'green' ? 'green' : 'dark';
+      const og = document.querySelector('#og');
+      og.className = theme;
+      const FG = theme === 'green' ? '#161616' : '#7bfb70';
+      const PITCH = 18;
+      const DOT = 4.6; // radius
+      const MID = 315;
+      const N = 120; // columns in one loop
+      const SPEED = 20; // columns a second
+      const D = N / SPEED; // 6 s
+      const REACH = 250; // the loudest a column gets, px from the middle
+      const PAD = 40; // clear space around the title's capitals
+      const canvas = document.querySelector('canvas');
+      const g = canvas.getContext('2d');
+      const wrap = (i) => ((i % N) + N) % N;
+      const hash = (a, b = 0) => {
+        let h = Math.imul(a ^ 0x9e3779b9, 0x85ebca6b) ^ Math.imul(b + 0x632be5ab, 0xc2b2ae35);
+        h ^= h >>> 15;
+        h = Math.imul(h, 0x2c1b3c6d);
+        h ^= h >>> 12;
+        return (h >>> 0) / 4294967296;
+      };
+
+      // A voice's loudness over the loop, like a voice note: every bar its own height, inside
+      // phrases that swell and settle (sines that fit the loop, so it repeats without a seam).
+      const loud = Array.from({ length: N }, (_, i) => {
+        const x = (i / N) * Math.PI * 2;
+        const phrase = 0.4 + 0.6 * Math.abs(Math.sin(x * 2.5 + 0.4));
+        return phrase * (0.25 + 0.75 * hash(i, 3));
+      });
+      const FADE = 150; // the sound fades in from the left edge and out at the right
+
+      let hole = { x0: 0, x1: 0, y0: 0, y1: 0 };
+
+      function place(title) {
+        kern(title);
+        fit(title, 700);
+        const fs = parseFloat(title.style.fontSize);
+        const probe = document.createElement('canvas').getContext('2d');
+        probe.font = `700 ${fs}px Olline`;
+        const ink = probe.measureText('HUSH MONEY');
+        const marker = Object.assign(document.createElement('span'), { style: 'display:inline-block;width:0;height:0' });
+        title.append(marker);
+        const base = marker.getBoundingClientRect().top - og.getBoundingClientRect().top;
+        marker.remove();
+        const capTop = base - ink.actualBoundingBoxAscent;
+        const capBottom = base + ink.actualBoundingBoxDescent;
+        const w = title.getBoundingClientRect().width;
+        const left = (1200 - w) / 2;
+        const top = MID - (capTop + capBottom) / 2;
+        title.style.left = `${left}px`;
+        title.style.top = `${top}px`;
+        const h = (capBottom - capTop) / 2;
+        hole = { x0: left - PAD, x1: left + w + PAD, y0: MID - h - PAD, y1: MID + h + PAD };
+      }
+
+      function draw() {
+        const t = now() % D;
+        const shift = t * SPEED;
+        const first = Math.floor(shift);
+        const frac = shift - first;
+        g.fillStyle = theme === 'green' ? '#7bfb70' : '#161616';
+        g.fillRect(0, 0, 1200, 630);
+        g.fillStyle = FG;
+        const cols = Math.ceil(1200 / PITCH) + 1;
+        for (let c = 0; c < cols; c++) {
+          const x = (c - frac) * PITCH + PITCH / 2;
+          const level = loud[wrap(first + c)];
+          const most = Math.round(REACH / PITCH);
+          // Over the title, the sound starts where the clear space ends, so every column
+          // there still shows above and below the letters, and the outline never breaks.
+          const over = x > hole.x0 && x < hole.x1;
+          const clear = Math.floor((hole.y1 - MID) / PITCH) + 1;
+          const k = over ? clear + Math.round(level * (most - clear)) : Math.round(level * most);
+          const edge = Math.min(1, Math.max(0, Math.min(x, 1200 - x) / FADE));
+          g.globalAlpha = edge * edge * (3 - 2 * edge);
+          for (let r = -k; r <= k; r++) {
+            const y = MID + r * PITCH;
+            if (x > hole.x0 && x < hole.x1 && y > hole.y0 && y < hole.y1) continue;
+            g.beginPath();
+            g.arc(x, y, DOT, 0, Math.PI * 2);
+            g.fill();
+          }
+        }
+        g.globalAlpha = 1;
+        requestAnimationFrame(draw);
+      }
+
+      const ready = document.fonts.ready.then(() => {
+        place(document.querySelector('.title'));
+        draw();
+      });
+
+      register({ duration: D, hero: 1.5, ready });
+    </script>
+  </body>
+</html>
