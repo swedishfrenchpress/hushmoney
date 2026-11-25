@@ -1614,8 +1614,10 @@ body:has(#listen) {
 
 .ear .face {
   font-weight: 600;
-  letter-spacing: -0.03em;
+  /* Capitals need more room than lowercase: at this size the brand's tight caps still breathe. */
+  letter-spacing: -0.012em;
   text-transform: uppercase;
+  font-feature-settings: 'case'; /* the ellipsis and colon sit up with the capitals */
   font-size: 22px;
 }
 
@@ -1627,6 +1629,7 @@ body:has(#listen) {
 #listen .note {
   font-size: var(--fs-body);
   font-weight: 500;
+  line-height: 1.38;
 }
 
 #listen .note.main.waiting {
@@ -1757,7 +1760,8 @@ body:has(#listen) {
 .sheet-title,
 .settings-title {
   text-transform: uppercase;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.012em;
+  font-feature-settings: 'case';
 }
 
 /* Text in the sheets reads from the left; only the titles and the amount are centred. */
@@ -2738,7 +2742,10 @@ body:has(#music) {
   }
 }
 
-#listen .note.main {
+/* The page's notes keep a short centred line, so a long one reads as a sentence, not a banner. */
+#listen .note.main,
+#listen .nowallet {
+  max-width: 30ch;
   text-wrap: balance;
 }
 

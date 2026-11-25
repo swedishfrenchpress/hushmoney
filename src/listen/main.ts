@@ -245,7 +245,7 @@ async function forward() {
     refresh();
     showCaught(sats);
     const why = e instanceof NotSent || e instanceof LnurlError || e instanceof Error ? e.message : "it didn't go through";
-    note.textContent = `Couldn't send it to ${name}: ${why} The sats are still on this phone.`;
+    note.textContent = `Couldn't send it to ${name}: ${/[.!?]$/.test(why) ? why : `${why}.`} The sats are still on this phone.`;
     note.classList.add('bad');
   }
 }
