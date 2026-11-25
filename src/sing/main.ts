@@ -63,7 +63,7 @@ function start() {
           <p class="amount">${BTC_MARK}<span class="n"></span></p>
         </div>
         <div class="received-side">
-          <p class="received-line"><span>Money talked.</span> <span>You don't.</span></p>
+          <p class="received-line"><span>Money talks.</span> <span>You don't.</span></p>
           <button class="pill again" type="button">Sing another</button>
         </div>
       </div>

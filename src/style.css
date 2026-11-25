@@ -2133,7 +2133,7 @@ body:has(#listen) {
 /* The one thing this screen says, sized from the title it hangs under. */
 #sing .received-line {
   margin: 0;
-  font-size: max(44px, calc(var(--title) * 0.38)); /* "Money talked." is 7.3em wide: this keeps it inside the column at every width */
+  font-size: max(44px, calc(var(--title) * 0.38)); /* sized for the widest line, "Money talks.": it stays inside the column at every width */
   font-weight: 600;
   line-height: 0.9;
   letter-spacing: -0.04em;
