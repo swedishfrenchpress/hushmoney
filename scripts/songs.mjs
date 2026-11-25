@@ -36,8 +36,18 @@ const fail = (line) => {
 
 const [cmd, arg] = process.argv.slice(2);
 const mint = process.env.MINT_URL ?? PRODUCT_MINT;
-const base = process.env.BASE ?? 'http://localhost:5173';
+const base = (process.env.BASE ?? 'http://localhost:5173').replace(/\/$/, '');
 const secret = process.env.ADMIN_SECRET ?? '';
+let baseUrl;
+try {
+  baseUrl = new URL(base);
+} catch {
+  fail('BASE must be a valid URL.');
+}
+const localHttp = baseUrl.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(baseUrl.hostname);
+if ((baseUrl.protocol !== 'https:' && !localHttp) || baseUrl.username || baseUrl.password) {
+  fail('BASE must use HTTPS without URL credentials; plain HTTP is only allowed on localhost.');
+}
 
 if (cmd === 'testpool') {
   await fillPool(base, Number(arg) || 10);

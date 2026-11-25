@@ -56,9 +56,16 @@ export async function phonePage(browser: Browser, path = '/listen'): Promise<Pag
   return page;
 }
 
-// A song straight from the API, as the laptop would get it.
+// A song straight from the API, as the laptop would get it. Each test helper
+// call is its own connection so the faucet's five-per-IP cap does not couple
+// otherwise independent browser tests together.
+let connection = 0;
 export async function songFromApi(): Promise<{ song: string; sats: number }> {
-  const res = await fetch(`${BASE}/api/song`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ human: 'XXXX.DUMMY.TOKEN.XXXX' }) });
+  const res = await fetch(`${BASE}/api/song`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-real-ip': `198.51.100.${++connection}` },
+    body: JSON.stringify({ human: 'XXXX.DUMMY.TOKEN.XXXX' }),
+  });
   if (!res.ok) throw new Error(`/api/song ${res.status}`);
   return res.json();
 }

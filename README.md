@@ -28,7 +28,7 @@ The laptop page is `/`. It shows a QR code for the phone page, `/listen`, and a 
 Every song is 21 sats from the real Minibits mint, made ahead of time. The server holds no mint and no sats, only the finished songs, so a hacked server gives away at most the pool. Run these on your own machine:
 
 1. `npm run songs` with no `ADMIN_SEED` makes one and shows it once. Save it: it is the key to the stash, and it restores it (`restore`) if the journal is lost. Then set `ADMIN_SEED`.
-2. Set `BASE` (the site, default `http://localhost:5173`) and `ADMIN_SECRET`.
+2. Set `BASE` (the site, default `http://localhost:5173`) and `ADMIN_SECRET`. `BASE` must use HTTPS anywhere except localhost, so the admin secret and bearer songs never travel in plaintext.
 3. `BASE=https://hushmoney.cash npm run songs -- invoice 100` prints a Lightning invoice for 100 songs (2,100 sats). Pay it from any wallet; the script waits, mints, makes the songs and sends them to the server. Paying is all it takes: the server is out of songs only when the money is. If the script stops first, `claim <quote>` finishes the job.
 
 Each song is written to `.data/songs-backup.json`, then sent. `push` resends any the server missed, `make` turns anything left in the stash into songs, `balance` shows the stash and the pool.

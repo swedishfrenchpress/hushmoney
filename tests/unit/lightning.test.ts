@@ -1,3 +1,4 @@
+import { Wallet } from '@cashu/cashu-ts';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { FakeOutcomeName } from '../../shared/lnurl';
 import { fakeInvoice, fakeLimits } from '../../server/fakeln';
@@ -83,6 +84,23 @@ describe('sending to a Lightning address', () => {
   test('below ₿8 there is nothing to send', async () => {
     const { ln } = await holding(5);
     await expect(ln.pay('paid@fake.testnut')).rejects.toThrow(TooSmall);
+  });
+
+  test('Lightning never spends coins already handed to a wallet app', async () => {
+    const { w, ln } = await holding(32);
+    const handedOut = w.handOut()!;
+    await w.catch((await makeSong(fake, 64)).song);
+
+    const op = await ln.pay('paid@fake.testnut');
+    expect(op.inputs.every((c) => !c.out)).toBe(true);
+    expect(op.inputs.reduce((s, c) => s + c.amount, 0)).toBe(64);
+    expect(w.balance().out).toBe(32);
+
+    // The earlier token still works: its proofs were not reused for Lightning.
+    const app = new Wallet(fake.url, { unit: 'sat' });
+    await app.loadMint();
+    await app.receive(handedOut);
+    expect((await w.settle()).landed).toBe(32);
   });
 
   test("an address that isn't one is refused before the mint is asked", async () => {

@@ -26,7 +26,9 @@ export function isPublicIp(ip: string): boolean {
     if (a === 169 && b === 254) return false;
     if (a === 172 && b >= 16 && b <= 31) return false;
     if (a === 192 && b === 168) return false;
-    if (a === 192 && b === 0 && (c === 0 || c === 2)) return false;
+    if (a === 192 && b === 0 && c === 0) return false; // IETF protocol assignments (often used internally)
+    if (a === 192 && b === 0 && c === 2) return false;
+    if (a === 192 && b === 88 && c === 99) return false; // reserved 6to4 relay anycast
     if (a === 198 && (b === 18 || b === 19)) return false;
     if (a === 198 && b === 51 && c === 100) return false;
     if (a === 203 && b === 0 && c === 113) return false;
@@ -40,6 +42,7 @@ export function isPublicIp(ip: string): boolean {
     const first = parseInt(s.split(':')[0] || '0', 16);
     if ((first & 0xfe00) === 0xfc00) return false; // unique local fc00::/7
     if ((first & 0xffc0) === 0xfe80) return false; // link-local fe80::/10
+    if ((first & 0xffc0) === 0xfec0) return false; // deprecated site-local fec0::/10
     if ((first & 0xff00) === 0xff00) return false; // multicast
     if (s.startsWith('2001:db8') || s.startsWith('64:ff9b') || s.startsWith('100::')) return false;
     if (s.startsWith('::')) return false; // other IPv4-compatible and reserved forms

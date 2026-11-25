@@ -1,3 +1,6 @@
+.data/
+.data-e2e/
+.data-shots/
 design/
 test-results/
 playwright-report/

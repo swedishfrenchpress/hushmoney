@@ -85,6 +85,12 @@ export class PhoneWallet {
     return this.vault.read<Coin[]>(coinsKey(this.mint)) ?? [];
   }
 
+  // Coins that have not been encoded for somebody else. Spending `out` coins
+  // here as well would give two different recipients the same Cashu proofs.
+  heldCoins(): Coin[] {
+    return this.coins().filter((c) => !c.out);
+  }
+
   balance(): Balance {
     const coins = this.coins();
     const out = coins.filter((c) => c.out).reduce((s, c) => s + c.amount, 0);
@@ -186,6 +192,13 @@ export class PhoneWallet {
     const at = this.now();
     this.vault.write(coinsKey(this.mint), coins.map((c) => ({ ...c, out: c.out ?? at })));
     return token;
+  }
+
+  // Marks only these coins as on their way, for a send that took just them.
+  // A song caught while the send was in flight stays held, so it can still be spent.
+  markOut(secrets: Set<string>) {
+    const at = this.now();
+    this.vault.write(coinsKey(this.mint), this.coins().map((c) => (secrets.has(c.secret) ? { ...c, out: c.out ?? at } : c)));
   }
 
   // Asks the mint which coins are spent and drops them (NUT-07). `landed` is

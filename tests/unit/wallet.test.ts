@@ -159,6 +159,16 @@ describe('handing sats out', () => {
     expect(await w.settle()).toEqual({ landed: 16, balance: { held: 4, out: 0, total: 4 } });
   });
 
+  test('a send marks only the coins it took; a catch during the send stays held', async () => {
+    const w = phone();
+    await w.catch((await makeSong(fake, 16)).song);
+    const sent = w.heldCoins();
+    await w.catch((await makeSong(fake, 4)).song); // lands while the send is in flight
+    w.markOut(new Set(sent.map((c) => c.secret)));
+    expect(w.balance()).toEqual({ held: 4, out: 16, total: 20 });
+    expect(w.heldCoins().reduce((s, c) => s + c.amount, 0)).toBe(4);
+  });
+
   test('nothing to hand out', () => {
     expect(phone().handOut()).toBeNull();
   });

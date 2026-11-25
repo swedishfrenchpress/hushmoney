@@ -4,7 +4,7 @@ import { InvoiceError } from '../shared/bolt11.js';
 import { LnurlError, parseAddress, type FakeOutcomeName } from '../shared/lnurl.js';
 import type { LnurlInvoice, LnurlLimits } from '../shared/song.js';
 import { fakeInvoice, fakeLimits } from './fakeln.js';
-import { allow, checksHumans, human, ipOf, shared, status } from './guard.js';
+import { allow, checksHumans, human, ipOf, lnurlAllowed, refund, shared, status } from './guard.js';
 import { dnsResolver, httpsTransport, payInvoice, payMeta } from './lnproxy.js';
 import { timingSafeEqual } from 'node:crypto';
 import { MAX_COINS, sum } from '../shared/fees.js';
@@ -22,6 +22,14 @@ const DEV = !process.env.VERCEL;
 const ln = { resolve: dnsResolver, transport: httpsTransport };
 
 export const app = new Hono().basePath('/api');
+
+// Songs and their proofs are bearer secrets; neither browsers nor shared caches
+// should keep an API answer after the request is over.
+app.use('*', async (c, next) => {
+  await next();
+  c.header('Cache-Control', 'no-store');
+  c.header('X-Content-Type-Options', 'nosniff');
+});
 
 // Anything unexpected, most often Redis not answering, gets plain words instead of a bare 500.
 app.onError((e, c) => {
@@ -42,11 +50,21 @@ app.post('/song', bodyLimit({ maxSize: 1024, onError: (c) => c.json({ error: 'to
   if (!(await count())) return empty();
   // No phone is linked here, so the only caps are today's budget and this connection's share.
   // A song is all or nothing, so a part of 21 sats means this connection is done.
-  if ((await allow(SONG_SATS, { wallet: null, ip: ipOf(address) })) < SONG_SATS) {
+  const who = { wallet: null, ip: ipOf(address) };
+  const now = new Date();
+  if ((await allow(SONG_SATS, who, now)) < SONG_SATS) {
     return c.json({ error: "That's all the singing for today. Come back tomorrow." }, 429);
   }
-  const song = await pop();
-  return song ? c.json(song) : empty();
+  try {
+    const song = await pop();
+    if (song) return c.json(song);
+  } catch (e) {
+    await refund(SONG_SATS, who, now);
+    throw e;
+  }
+  // Another request may have taken the last song after count() answered.
+  await refund(SONG_SATS, who, now);
+  return empty();
 });
 
 // The admin fills the pool from their own machine (scripts/songs.mjs).
@@ -107,6 +125,7 @@ app.route('/admin', admin);
 // never money. Fake addresses (paid@fake.testnut) answer in development only;
 // real ones always work, since the phone holds whatever mint the song named.
 app.post('/lnurl', bodyLimit({ maxSize: 2048, onError: (c) => c.json({ error: 'too big' }, 413) }), async (c) => {
+  if (!(await lnurlAllowed(c.req.header('x-real-ip')))) return c.json({ error: 'Too many Lightning lookups. Try again in a minute.' }, 429);
   const body = (await c.req.json().catch(() => null)) as { address?: string; msat?: number } | null;
   try {
     const a = parseAddress(body?.address ?? '');

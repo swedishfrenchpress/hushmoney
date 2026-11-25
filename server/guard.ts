@@ -36,6 +36,8 @@ interface Store {
   drop(key: string): Promise<void>;
   // Grants up to `asked` against every key's limit, and counts the grant on all of them.
   take(asked: number, ttl: number, limits: [string, number][]): Promise<number>;
+  // Gives a grant back when the pool could not supply the song it paid for.
+  refund(sats: number, limits: [string, number][]): Promise<void>;
 }
 
 const TAKE = `local grant = tonumber(ARGV[1])
@@ -49,6 +51,12 @@ for _, key in ipairs(KEYS) do
   redis.call('EXPIRE', key, ARGV[2])
 end
 return grant`;
+
+const REFUND = `for _, key in ipairs(KEYS) do
+  local left = redis.call('DECRBY', key, ARGV[1])
+  if left <= 0 then redis.call('DEL', key) end
+end
+return 1`;
 
 async function redis(...command: (string | number)[]): Promise<unknown> {
   const res = await fetch(REDIS_URL!, {
@@ -66,6 +74,7 @@ const upstash: Store = {
   drop: async (key) => void (await redis('DEL', key)),
   take: async (asked, ttl, limits) =>
     Number(await redis('EVAL', TAKE, limits.length, ...limits.map(([key]) => key), asked, ttl, ...limits.map(([, n]) => n))),
+  refund: async (sats, limits) => void (await redis('EVAL', REFUND, limits.length, ...limits.map(([key]) => key), sats)),
 };
 
 const kept = new Map<string, { n: number; until: number }>();
@@ -88,6 +97,15 @@ const memory: Store = {
     for (const [key] of limits) kept.set(key, { n: count(key) + grant, until: Date.now() + ttl * 1000 });
     return grant;
   },
+  async refund(sats, limits) {
+    for (const [key] of limits) {
+      const entry = kept.get(key);
+      if (!entry) continue;
+      const left = Math.max(0, entry.n - sats);
+      if (left) kept.set(key, { ...entry, n: left });
+      else kept.delete(key);
+    }
+  },
 };
 
 const store = shared ? upstash : memory;
@@ -98,15 +116,32 @@ export interface Visitor {
   ip: string; // from ipOf()
 }
 
-// How many of `sats` this visitor may be paid now: all of them, some or none.
-export function allow(sats: number, who: Visitor): Promise<number> {
-  const day = new Date().toISOString().slice(0, 10);
+function limitsFor(who: Visitor, now: Date): [string, number][] {
+  const day = now.toISOString().slice(0, 10);
   const limits: [string, number][] = [
     [keyOf('paid', day), LIMITS.budget],
     [keyOf('ip', who.ip, day), LIMITS.perIp],
   ];
   if (who.wallet) limits.push([keyOf('wallet', who.wallet, day), LIMITS.perWallet]);
-  return store.take(sats, 2 * DAY_S, limits);
+  return limits;
+}
+
+// How many of `sats` this visitor may be paid now: all of them, some or none.
+export function allow(sats: number, who: Visitor, now = new Date()): Promise<number> {
+  return store.take(sats, 2 * DAY_S, limitsFor(who, now));
+}
+
+// A song reservation that could not be filled costs nobody their daily share.
+export function refund(sats: number, who: Visitor, now = new Date()): Promise<void> {
+  return store.refund(sats, limitsFor(who, now));
+}
+
+// The LNURL proxy makes outbound connections on a visitor's behalf. Keep each
+// connection from turning it into an unmetered proxy; a normal send needs two.
+export async function lnurlAllowed(address: string | undefined): Promise<boolean> {
+  const minute = Math.floor(Date.now() / 60_000);
+  const key = keyOf('lnurl', ipOf(address), String(minute));
+  return (await store.take(1, 2 * 60, [[key, 40]])) === 1;
 }
 
 // True the first time `what` is claimed within `ttl` seconds, false after that.

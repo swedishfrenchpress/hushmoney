@@ -72,7 +72,7 @@ export class Lightning {
     return exclusive('ln', this.wallet.vault, async () => {
       const existing = this.op;
       if (existing && existing.state !== 'paid' && existing.state !== 'failed') return this.reconcile(existing);
-      const coins = this.wallet.coins();
+      const coins = this.wallet.heldCoins();
       const share = total(coins);
       if (share < MIN_LIGHTNING) throw new TooSmall(`Lightning needs at least ₿${MIN_LIGHTNING}, for the mint's fee.`);
       const a = parseAddress(address);
@@ -101,6 +101,12 @@ export class Lightning {
       if (!quote || sats < 1 || !fits(sats)) throw new TooSmall("These sats don't cover the Lightning fee.");
 
       const preview = await w.prepareMelt('bolt11', quote, normalizeProofAmounts(coins));
+      // The invoice and quote take network round-trips. If the visitor handed
+      // these proofs to a wallet meanwhile, do not melt the same proofs too.
+      const stillHeld = new Set(this.wallet.heldCoins().map((c) => c.secret));
+      if (coins.some((c) => !stillHeld.has(c.secret))) {
+        throw new LnurlError('Some of these sats were handed to a wallet while Lightning was getting ready. Try again with what is still here.');
+      }
       const op: LnOp = {
         v: 1,
         address: `${a.user}@${a.domain}`,

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { LnurlError } from '../../shared/lnurl';
-import { safeGetJson, type LnDeps } from '../../server/lnproxy';
+import { isPublicIp, safeGetJson, type LnDeps } from '../../server/lnproxy';
 
 // Redirects are followed, a few hops at most, and every hop is checked like the first request.
 
@@ -59,5 +59,21 @@ describe('safeGetJson redirects', () => {
   test('a redirect with no Location is an error', async () => {
     const { d } = deps({ 'https://a.com/x': { status: 302, type: '', body: '' } });
     await expect(safeGetJson('https://a.com/x', d)).rejects.toThrow(/nowhere/);
+  });
+});
+
+describe('public IP checks', () => {
+  test('rejects every private and special-use address the proxy must not reach', () => {
+    const blocked = [
+      '10.0.0.1', '127.0.0.1', '169.254.169.254', '172.16.0.1', '192.168.1.1',
+      '192.0.0.1', '192.0.2.1', '192.88.99.1', '198.18.0.1', '224.0.0.1',
+      '::1', 'fc00::1', 'fe80::1', 'fec0::1', 'ff02::1', '64:ff9b::7f00:1',
+    ];
+    for (const ip of blocked) expect(isPublicIp(ip), ip).toBe(false);
+  });
+
+  test('accepts ordinary public addresses', () => {
+    expect(isPublicIp('93.184.216.34')).toBe(true);
+    expect(isPublicIp('2606:4700:4700::1111')).toBe(true);
   });
 });

@@ -161,7 +161,7 @@ function refresh(stamp = '') {
 function refreshLightning() {
   lnForm.hidden = !LIGHTNING;
   if (!LIGHTNING) return;
-  const total = wallet.balance().total;
+  const total = wallet.balance().held;
   const op = lightning.op;
   const busy = op?.state === 'paying' || op?.state === 'pending' || op?.state === 'unknown';
   const small = total < MIN_LIGHTNING;
@@ -232,10 +232,11 @@ async function forward() {
       note.textContent = describe(op);
       return;
     }
-    const sent = await sendToRequest(to, normalizeProofAmounts(wallet.coins()), MINT);
+    const coins = wallet.heldCoins();
+    const sent = await sendToRequest(to, normalizeProofAmounts(coins), MINT);
     await moment;
     // Marked as on its way; the mint says when the wallet claims it.
-    wallet.handOut();
+    wallet.markOut(new Set(coins.map((c) => c.secret)));
     showCaught(sats);
     handedOut();
     if (sent === 'maybe') note.textContent = `Sent to ${name}. No relay confirmed it yet, so it may take a moment to show up.`;

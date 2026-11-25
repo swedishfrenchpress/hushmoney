@@ -42,8 +42,8 @@ async function read(): Promise<SongResult[]> {
 }
 
 async function write(songs: SongResult[]) {
-  await mkdir(dirname(FILE), { recursive: true });
-  await writeFile(`${FILE}.tmp`, JSON.stringify(songs));
+  await mkdir(dirname(FILE), { recursive: true, mode: 0o700 });
+  await writeFile(`${FILE}.tmp`, JSON.stringify(songs), { mode: 0o600 });
   await rename(`${FILE}.tmp`, FILE);
 }
 

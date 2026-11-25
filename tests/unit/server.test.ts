@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
@@ -72,6 +72,7 @@ describe('the pool', () => {
   test('without Redis the songs are in a JSON file', async () => {
     await pool.push([await entry()]);
     expect(JSON.parse(readFileSync(process.env.POOL_FILE!, 'utf8'))).toHaveLength(1);
+    expect(statSync(process.env.POOL_FILE!).mode & 0o777).toBe(0o600);
   });
 });
 
@@ -95,8 +96,19 @@ describe('the server', () => {
 
   test('a song goes to one laptop only', async () => {
     await pool.push([await entry()]);
-    expect((await sing('10.0.1.1')).status).toBe(200);
+    const res = await sing('10.0.1.1');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('cache-control')).toBe('no-store');
     expect((await sing('10.0.1.2')).status).toBe(503);
+  });
+
+  test('racing for the last songs charges only the requests that receive one', async () => {
+    await pool.push(await Promise.all([entry(), entry(), entry()]));
+    const responses = await Promise.all(Array.from({ length: 8 }, (_, i) => sing(`10.0.9.${i}`)));
+    expect(responses.filter((r) => r.status === 200)).toHaveLength(3);
+    const losers = responses.map((r, i) => ({ r, ip: `10.0.9.${i}` })).filter(({ r }) => r.status === 503);
+    expect(losers).toHaveLength(5);
+    for (const { ip } of losers) expect(await guard.allow(guard.LIMITS.perIp, { wallet: null, ip })).toBe(guard.LIMITS.perIp);
   });
 
   test('with no songs left, the words say so, and no one is charged for asking', async () => {
@@ -153,6 +165,16 @@ describe('the server', () => {
     for (let i = 0; used + i * guard.LIMITS.perIp < guard.LIMITS.budget; i++) await guard.allow(guard.LIMITS.perIp, { wallet: null, ip: `10.1.0.${i}` });
     const res = await sing('10.0.0.8');
     expect(res.status).toBe(429);
+  });
+
+  test('the outbound Lightning proxy is metered per connection', async () => {
+    const lookup = () => app.request('/api/lnurl', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-real-ip': '10.0.0.42' },
+      body: JSON.stringify({ address: 'paid@fake.testnut' }),
+    });
+    for (let i = 0; i < 40; i++) expect((await lookup()).status).toBe(200);
+    expect((await lookup()).status).toBe(429);
   });
 });
 
