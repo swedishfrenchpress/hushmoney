@@ -60,10 +60,10 @@ export function readInvoice(pr: string): Invoice {
 }
 
 // Checks an invoice from a Lightning address (LUD-06): the amount we asked for, still valid for a
-// while, the right network and, for real addresses, the address's own metadata committed to by hash.
+// while, and the right network.
 export function checkInvoice(
   pr: string,
-  want: { msat: number; network: string; metadata?: string; now?: number; minValidS?: number },
+  want: { msat: number; network: string; now?: number; minValidS?: number },
 ): Invoice {
   const inv = readInvoice(pr);
   if (inv.network !== want.network) throw new InvoiceError(`invoice is for the wrong network (${inv.network})`);
@@ -71,12 +71,10 @@ export function checkInvoice(
   const now = want.now ?? Math.floor(Date.now() / 1000);
   if (inv.timestamp + inv.expiry < now + (want.minValidS ?? 60)) throw new InvoiceError('invoice expires too soon');
   if (inv.timestamp > now + 600) throw new InvoiceError('invoice is dated in the future');
-  // A hash that is there must be the right one. Some servers (npub.cash) leave it out and put a plain
-  // description in the invoice; the amount, network and expiry are still checked, so those pass.
-  if (want.metadata !== undefined && inv.descriptionHash !== undefined) {
-    const h = bytesToHex(sha256(utf8ToBytes(want.metadata)));
-    if (inv.descriptionHash !== h) throw new InvoiceError("invoice doesn't match the Lightning address");
-  }
+  // The description hash isn't checked against the address's metadata. Big servers don't follow it:
+  // Primal hashes something other than the metadata it publishes, npub.cash leaves the hash out.
+  // The invoice comes from the payee's own server over checked HTTPS, and the amount, network and
+  // expiry above are what keep the money safe.
   return inv;
 }
 

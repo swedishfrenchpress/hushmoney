@@ -10,8 +10,7 @@ import { callbackUrl, checkPayMeta, checkPayResponse, LnurlError, parseAddress, 
 //   - the hostname is resolved here and every address it resolves to must be public, and the
 //     connection goes to the address we checked, so DNS can't be swapped in between (rebinding);
 //   - redirects are followed, at most 3, and every hop gets all of these checks again; a timeout, a 64 KB cap on the answer, and JSON only;
-//   - the invoice must be for exactly the amount asked, on mainnet, unexpired, and committed to the
-//     address's metadata (LUD-06).
+//   - the invoice must be for exactly the amount asked, on mainnet and unexpired.
 
 export type Resolver = (host: string) => Promise<string[]>;
 export type Transport = (url: URL, ip: string, opts: { timeoutMs: number; maxBytes: number }) => Promise<{ status: number; type: string; body: string; location?: string }>;
@@ -151,6 +150,6 @@ export async function payInvoice(a: Address, msat: number, deps: LnDeps): Promis
   const meta = await payMeta(a, deps);
   if (!Number.isSafeInteger(msat) || msat < meta.minSendable || msat > meta.maxSendable) throw new LnurlError('that amount is outside what the Lightning address accepts');
   const pr = checkPayResponse(await safeGetJson(callbackUrl(meta, msat), deps));
-  checkInvoice(pr, { msat, network: 'bc', metadata: meta.metadata });
+  checkInvoice(pr, { msat, network: 'bc' });
   return pr;
 }
