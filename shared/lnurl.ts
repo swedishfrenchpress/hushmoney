@@ -34,9 +34,20 @@ export const wellKnown = (a: Address) => `https://${a.domain}/.well-known/lnurlp
 
 export type PayMeta = { callback: string; minSendable: number; maxSendable: number; metadata: string };
 
+// A server's own words for refusing, kept to 140 characters. A longer one is cut at a space
+// where there is one, and ends in an ellipsis so it reads as cut, not as a word left unfinished.
+const REASON_MAX = 140;
+function says(reason: unknown): string {
+  const text = String(reason ?? 'error').replace(/\s+/g, ' ').trim() || 'error';
+  if (text.length <= REASON_MAX) return text;
+  const cut = text.slice(0, REASON_MAX - 1);
+  const space = cut.lastIndexOf(' ');
+  return `${(space > REASON_MAX / 2 ? cut.slice(0, space) : cut).replace(/[\s.,:;(]+$/, '')}…`;
+}
+
 export function checkPayMeta(x: any): PayMeta {
   if (!x || typeof x !== 'object') throw new LnurlError("the Lightning address didn't answer properly");
-  if (x.status === 'ERROR') throw new LnurlError(`the Lightning address says: ${String(x.reason ?? 'error').slice(0, 140)}`);
+  if (x.status === 'ERROR') throw new LnurlError(`the Lightning address says: ${says(x.reason)}`);
   if (x.tag !== 'payRequest') throw new LnurlError("that address doesn't accept Lightning payments");
   const { callback, minSendable, maxSendable, metadata } = x;
   if (typeof callback !== 'string' || callback.length > 2000) throw new LnurlError('the Lightning address gave no callback');
@@ -67,7 +78,7 @@ export function callbackUrl(meta: PayMeta, msat: number): string {
 
 export function checkPayResponse(x: any): string {
   if (!x || typeof x !== 'object') throw new LnurlError("the Lightning address didn't send an invoice");
-  if (x.status === 'ERROR') throw new LnurlError(`the Lightning address says: ${String(x.reason ?? 'error').slice(0, 140)}`);
+  if (x.status === 'ERROR') throw new LnurlError(`the Lightning address says: ${says(x.reason)}`);
   if (typeof x.pr !== 'string' || x.pr.length > 2000) throw new LnurlError("the Lightning address didn't send an invoice");
   return x.pr;
 }

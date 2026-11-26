@@ -996,7 +996,8 @@ body:has(#how) {
 .ear {
   position: relative;
   isolation: isolate; /* the glow and the rings go behind the orb, the label in front */
-  width: min(62vw, 270px);
+  --orb: min(62vw, 270px); /* its width, which the amount on the coin is sized against */
+  width: var(--orb);
   aspect-ratio: 1;
   margin-bottom: 52px; /* the label hangs below */
   padding: 0;
@@ -1219,7 +1220,9 @@ body:has(#how) {
   transform: none;
   display: grid;
   place-items: center;
-  font-size: min(16vw, 72px);
+  /* Sized for a catch. A longer amount (a full wallet sent on at once) steps down to stay on
+     the coin: --chars is how many characters it has, each about 0.63em wide. */
+  font-size: min(16vw, 72px, calc(var(--orb) * 1.3 / var(--chars, 3)));
   font-weight: 600;
   letter-spacing: -0.03em;
   color: #2c1d04;
@@ -1259,11 +1262,28 @@ body:has(#how) {
   display: none;
 }
 
-/* The balance: a small gold coin and what it holds. */
-#listen .balance {
+/* The top of the phone: the gear at one side, the balance at the other. They share a row,
+   so a long address gives way to the balance instead of running under it. */
+#listen .top {
   position: fixed;
   top: max(16px, env(safe-area-inset-top));
+  left: 16px;
   right: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  pointer-events: none; /* the two buttons take taps, the space between them doesn't */
+}
+
+#listen .top > * {
+  pointer-events: auto;
+}
+
+/* The balance: a small gold coin and what it holds. It is never cut short. */
+#listen .balance {
+  flex: none;
+  margin-left: auto;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -1276,9 +1296,7 @@ body:has(#how) {
 }
 
 #listen .gear {
-  position: fixed;
-  top: max(16px, env(safe-area-inset-top));
-  left: 16px;
+  min-width: 0; /* its label shortens to fit the row */
   display: grid;
   place-items: center;
   width: 40px;
@@ -1435,18 +1453,30 @@ body:has(#how) {
   }
 }
 
+/* When the sheet is taller than the screen (a small phone, text made bigger) it scrolls, and
+   its parts keep their height instead of squeezing into each other. */
+.sheet {
+  overscroll-behavior: contain;
+}
+
+.sheet > * {
+  flex-shrink: 0;
+}
+
 .sheet .total {
   display: inline-flex;
   align-items: center;
-  gap: 14px;
-  font-size: 54px;
+  gap: calc(14em / 54);
+  /* 54px, or less when the amount is too long for the sheet at that size: the coin and its
+     gap (an em together) and --chars characters, each about 0.63em, share the width. */
+  font-size: min(54px, calc((min(100vw, 440px) - 48px) / (var(--chars, 3) * 0.63 + 1)));
   margin: 0 0 4px;
   color: var(--gold);
 }
 
 .sheet .total::before {
-  width: 40px;
-  height: 40px;
+  width: calc(40em / 54);
+  height: calc(40em / 54);
   box-shadow:
     inset 0 0 0 3px rgb(255 230 170 / 0.35),
     0 0 30px rgb(255 197 107 / 0.25);
@@ -1630,6 +1660,9 @@ body:has(#listen) {
   font-size: var(--fs-body);
   font-weight: 500;
   line-height: 1.38;
+  /* A Lightning address, or the node key in a server's error, has no spaces: it breaks
+     where it must rather than run off the screen. */
+  overflow-wrap: anywhere;
 }
 
 #listen .note.main.waiting {
@@ -1663,6 +1696,11 @@ body:has(#listen) {
 }
 
 
+#listen .gear svg {
+  flex: none;
+}
+
+/* At most about half the screen, and less when the balance beside it needs the room. */
 #listen .gear-text {
   max-width: 52vw;
   overflow: hidden;
@@ -2683,7 +2721,7 @@ body:has(#music) {
   }
 
   #listen .ear {
-    width: min(62vw, 270px, 40vh);
+    --orb: min(62vw, 270px, 40vh);
     margin-top: 16px;
   }
 
