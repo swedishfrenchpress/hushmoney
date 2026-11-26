@@ -1,6 +1,6 @@
 import { createBlindSignature, createDLEQProof, createNewMintKeys, hashToCurve, pointFromHex } from '@cashu/cashu-ts';
 import { secp256k1 } from '@noble/curves/secp256k1.js';
-import { bytesToHex, randomBytes } from '@noble/hashes/utils.js';
+import { bytesToHex, hexToBytes, randomBytes } from '@noble/hashes/utils.js';
 import { readInvoice, writeInvoice } from '../../shared/bolt11';
 
 // trick4's copy of trick5's tests/support/fakemint.ts. Changes, all marked trick4: a local MintProof
@@ -89,7 +89,8 @@ export class FakeMint {
 
   private sign(o: { amount: number; id: string; B_: string }) {
     const k = this.keysets.find((x) => x.id === o.id)!;
-    const privBytes = Uint8Array.from(Buffer.from(k.priv[String(o.amount)].toString(16).padStart(64, '0'), 'hex'));
+    // hexToBytes, not Node's Buffer: this mint also runs in a page (tests/support/worstcase.ts).
+    const privBytes = hexToBytes(k.priv[String(o.amount)].toString(16).padStart(64, '0'));
     const B = pointFromHex(o.B_);
     const sig = createBlindSignature(B, privBytes, o.id);
     const dleq = createDLEQProof(B, privBytes);
