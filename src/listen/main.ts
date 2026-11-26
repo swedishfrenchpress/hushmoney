@@ -1,16 +1,15 @@
 import '../style.css';
-import { normalizeProofAmounts } from '@cashu/cashu-ts';
+import { NetworkError, normalizeProofAmounts } from '@cashu/cashu-ts';
 import { audio, playTune } from '../bell';
 import { btc } from '../btc';
 import { songTune } from '../melody';
 import { ladder } from '../tuneLadder';
 import { DestinationError, nameOf, parseDestination, type Destination } from '../../shared/destination';
-import { LnurlError } from '../../shared/lnurl';
 import { MINTS, fromHex, packSong, unpackSong, type Song } from '../../shared/song';
 import { air, type AirSong } from '../air';
 import { api } from '../api';
 import { BLOCK, decoder, warmGgwave, type Decoder } from '../ggwave';
-import { NotSent, sendToRequest } from './forward';
+import { sendToRequest } from './forward';
 import { Lightning, MIN_LIGHTNING, type LnOp } from './lightning';
 import { openMic, type Mic } from './mic';
 import { makeOrb, type Look, type Orb, type Sound } from './orb';
@@ -35,11 +34,13 @@ const lightning = new Lightning(wallet, { limits: api.lnLimits, invoice: api.lnI
 
 const root = document.querySelector<HTMLElement>('#listen')!;
 root.innerHTML = `
-  <button class="gear" type="button" aria-label="Settings" aria-haspopup="dialog">
-    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2" /><path d="M10.3 2.8h3.4l.5 2.3 1.9.8 2-1.3 2.4 2.4-1.3 2 .8 1.9 2.3.5v3.4l-2.3.5-.8 1.9 1.3 2-2.4 2.4-2-1.3-1.9.8-.5 2.3h-3.4l-.5-2.3-1.9-.8-2 1.3-2.4-2.4 1.3-2-.8-1.9-2.3-.5v-3.4l2.3-.5.8-1.9-1.3-2 2.4-2.4 2 1.3 1.9-.8z" /></svg>
-    <span class="gear-text"></span>
-  </button>
-  <button class="balance amount" type="button" hidden aria-haspopup="dialog"></button>
+  <div class="top">
+    <button class="gear" type="button" aria-label="Settings" aria-haspopup="dialog">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2" /><path d="M10.3 2.8h3.4l.5 2.3 1.9.8 2-1.3 2.4 2.4-1.3 2 .8 1.9 2.3.5v3.4l-2.3.5-.8 1.9 1.3 2-2.4 2.4-2-1.3-1.9.8-.5 2.3h-3.4l-.5-2.3-1.9-.8-2 1.3-2.4-2.4 1.3-2-.8-1.9-2.3-.5v-3.4l2.3-.5.8-1.9-1.3-2 2.4-2.4 2 1.3 1.9-.8z" /></svg>
+      <span class="gear-text"></span>
+    </button>
+    <button class="balance amount" type="button" hidden aria-haspopup="dialog"></button>
+  </div>
   <h1 class="wordmark" aria-label="Hush Money"><span>Hush</span><span>Money</span></h1>
   <button class="ear" type="button"><span class="glow" aria-hidden="true"></span><span class="rings" aria-hidden="true"></span><span class="disc" aria-hidden="true"></span><span class="face"></span></button>
   <p class="note main" role="status"></p>
@@ -151,7 +152,9 @@ function refresh(stamp = '') {
   const b = wallet.balance();
   pill.hidden = b.total <= 0;
   pill.textContent = `₿${b.total}`;
-  $('.total', sheet).textContent = `₿${b.total}`;
+  const total = $('.total', sheet);
+  total.textContent = pill.textContent;
+  total.style.setProperty('--chars', String(`₿${b.total}`.length)); // the stylesheet sizes it to fit
   $('.split', sheet).textContent = b.out ? `₿${b.held} here · ₿${b.out} on their way` : '';
   if (stamp) $('.stamp', sheet).textContent = stamp;
   for (const a of root.querySelectorAll<HTMLElement>('.open, .copy')) a.toggleAttribute('disabled', b.total <= 0);
@@ -185,6 +188,19 @@ function describe(op: LnOp): string {
       return op.error ?? "Couldn't send it.";
   }
 }
+
+// Why a send didn't happen, in words that can follow a colon. The mint being out of reach
+// gets our own words, never the library's ("Failed to fetch at https://...").
+function reason(e: unknown): string {
+  if (e instanceof NetworkError) return "couldn't reach the mint";
+  return e instanceof Error && e.message ? e.message : "it didn't go through";
+}
+
+// With a full stop, unless it already ends a sentence.
+const stopped = (text: string) => (/[.!?…]$/.test(text) ? text : `${text}.`);
+
+// Standing alone: Lightning errors are written to follow a colon, so they start small.
+const sentence = (text: string) => stopped(text.charAt(0).toUpperCase() + text.slice(1));
 
 // Where each catch goes on to, if the gear has one saved.
 function destination(): Destination | null {
@@ -244,26 +260,30 @@ async function forward() {
     await moment;
     refresh();
     showCaught(sats);
-    const why = e instanceof NotSent || e instanceof LnurlError || e instanceof Error ? e.message : "it didn't go through";
-    note.textContent = `Couldn't send it to ${name}: ${/[.!?]$/.test(why) ? why : `${why}.`} The sats are still on this phone.`;
+    note.textContent = `Couldn't send it to ${name}: ${stopped(reason(e))} The sats are still on this phone.`;
     note.classList.add('bad');
   }
+}
+
+// The amount on the coin. The stylesheet sizes it by its length, so a big one still fits.
+function onCoin(sats: number) {
+  face.className = 'face amount';
+  face.innerHTML = btc(sats);
+  face.style.setProperty('--chars', String(`₿${sats}`.length));
 }
 
 // The catch, and everything this browser holds going out together, so nothing is left behind.
 function showCaught(sats: number) {
   const held = wallet.balance().total;
   show('caught', held > sats ? `Sends all ₿${held} this browser holds.` : "Don't tell anyone.");
-  face.className = 'face amount';
-  face.innerHTML = btc(sats);
+  onCoin(sats);
   $('.copy', actions).textContent = 'Copy';
 }
 
 // A wallet app claimed it: the coin turns over once more and sends out gold rings.
 function showLanded(sats: number, text = `₿${sats} landed in your wallet.`) {
   show('landed', text);
-  face.className = 'face amount';
-  face.innerHTML = btc(sats);
+  onCoin(sats);
   // The amount is stamped on again as the coin comes back around, not left floating while it turns.
   face.style.animation = 'none';
   void face.offsetWidth;
@@ -459,13 +479,19 @@ for (const copy of root.querySelectorAll<HTMLButtonElement>('.copy')) {
   copy.addEventListener('click', async () => {
     const token = wallet.handOut();
     if (!token) return;
+    let copied = true;
     try {
       await navigator.clipboard.writeText(token);
-      copy.textContent = 'Copied';
     } catch {
-      copy.textContent = "Couldn't copy. Use Open in Cashu.me.";
+      copied = false;
     }
+    copy.textContent = copied ? 'Copied' : "Couldn't copy";
     handedOut();
+    if (copied) return;
+    // The button keeps to two words; what to do instead is said in the line beside it.
+    const line = copy.closest('.sheet') ? $('.stamp', sheet) : note;
+    line.textContent = "Couldn't copy it. Use Open in Cashu.me.";
+    line.classList.remove('waiting');
   });
 }
 
@@ -504,7 +530,7 @@ lnForm.addEventListener('submit', async (e) => {
     refresh();
   } catch (err) {
     refresh();
-    lnStatus.textContent = err instanceof LnurlError || err instanceof Error ? err.message : "Couldn't send it.";
+    lnStatus.textContent = sentence(reason(err));
     lnStatus.classList.add('bad');
   }
 });
