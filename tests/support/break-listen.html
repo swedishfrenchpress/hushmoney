@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- The phone's page (listen/index.html) on a fake mint, with worst-case data. Development only:
+         it isn't one of the build's pages, and worstcase.ts refuses to run outside the dev server.
+
+           npm run dev
+           http://localhost:5173/tests/support/break-listen.html?data=worst
+
+         The same viewport and theme colour as listen/index.html; keep them in step. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="robots" content="noindex" />
+    <title>Hush Money (worst case)</title>
+    <meta name="theme-color" content="#7bfb70" />
+  </head>
+  <body>
+    <main id="listen"></main>
+    <!-- First, so the page below finds the fixture's storage, mint and server instead of the real ones. -->
+    <script type="module" src="./worstcase.ts"></script>
+    <script type="module" src="/src/listen/main.ts"></script>
+  </body>
+</html>
